@@ -33,7 +33,8 @@ public partial class App : Application
         if (!Scripted)
         {
             _single = new Mutex(true, "GlassIsland.SingleInstance", out bool first);
-            if (!first) { Shutdown(); return; }
+            if (!first) { Log("Already running; this second launch exits."); Shutdown(); return; }
+            Log($"Starting from {Environment.ProcessPath}");
         }
 
         DispatcherUnhandledException += (_, args) =>

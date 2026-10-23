@@ -152,7 +152,8 @@ public sealed class MediaService : Observable
             SourceApp = _session.SourceAppUserModelId ?? "";
             App.Log($"Player: '{SourceName}' → {AppWindows.Describe(SourceApp, title)}");
             ArtColor = ColorTools.Dominant(art) ?? WpfColor.FromRgb(0x9E, 0xA7, 0xFF);
-            if (small && !HdCache.ContainsKey(key) && OnlineArtwork()) _ = UpgradeArtAsync(key, title, artist);
+            // Only real tracks: untitled sessions (voice calls, some web players) have nothing to look up.
+            if (small && !string.IsNullOrWhiteSpace(p.Title) && !HdCache.ContainsKey(key) && OnlineArtwork()) _ = UpgradeArtAsync(key, title, artist);
 
             if (key != _lastTrackKey)
             {

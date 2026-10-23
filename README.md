@@ -5,11 +5,15 @@ your screen that morphs into a panel for wallpapers (Wallpaper Engine), theme, m
 
 ![states](docs/home.png)
 
-## Run it
+## Install
 
 ```
-publish\GlassIsland.exe
+powershell -ExecutionPolicy Bypass -File install.ps1
 ```
+
+This builds the app and installs it to `%LOCALAPPDATA%\Programs\GlassIsland` (on the system drive, so it's
+there as soon as you sign in). It adds a **Glass Island** Start menu shortcut, sets it to start with Windows,
+and launches it. Re-run it after changing the code to update the installed copy.
 
 Requires Windows 10 (2004) or later and the [.NET 10 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/10.0).
 To build from source with the .NET 10 SDK: `dotnet publish -c Release -o publish`.
