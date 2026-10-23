@@ -66,6 +66,7 @@ internal static class Native
     [DllImport("user32.dll")] public static extern bool IsZoomed(IntPtr hWnd);
     [DllImport("user32.dll")] public static extern IntPtr GetDesktopWindow();
     [DllImport("user32.dll", CharSet = CharSet.Unicode)] public static extern int GetClassName(IntPtr hWnd, System.Text.StringBuilder sb, int max);
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)] public static extern int GetWindowText(IntPtr hWnd, System.Text.StringBuilder sb, int max);
     [DllImport("user32.dll")] public static extern IntPtr MonitorFromPoint(POINT pt, uint flags);
     [DllImport("user32.dll")] public static extern IntPtr MonitorFromWindow(IntPtr hwnd, uint flags);
     [DllImport("user32.dll", CharSet = CharSet.Unicode)] public static extern bool GetMonitorInfo(IntPtr hMon, ref MONITORINFO info);
@@ -167,20 +168,30 @@ internal static class Native
         if (cls is "WorkerW" or "Progman" or "Shell_TrayWnd" or "Shell_SecondaryTrayWnd" or "XamlExplorerHostIslandWindow"
             or "Windows.UI.Core.CoreWindow" or "MultitaskingViewFrame" or "ForegroundStaging" or "TopLevelWindowForOverflowXamlIsland")
             return false;
-        // Fullscreen = no title bar and covering the whole monitor (F11 browsers, borderless games, video players).
-        // Maximized windows keep a caption or a resizable frame; with an auto-hide taskbar they also cover the
-        // monitor, so they must not count.
+        // Real fullscreen (F11 browsers, fullscreen video, borderless games) has no title bar and is sized to
+        // *exactly* the monitor. Maximized windows never count: they keep a caption, and Windows sizes them
+        // ~8 px past every edge (even with an auto-hide taskbar, where they too cover the whole screen).
+        if (IsZoomed(fg)) return false;
         int style = GetWindowLong(fg, GWL_STYLE);
         if ((style & WS_CAPTION) == WS_CAPTION) return false;
-        if (IsZoomed(fg) && (style & WS_THICKFRAME) != 0) return false;
         if (!GetWindowRect(fg, out var r)) return false;
-        var mon = MonitorFromWindow(fg, 2);
-        var info = new MONITORINFO { cbSize = Marshal.SizeOf<MONITORINFO>() };
-        if (!GetMonitorInfo(mon, ref info)) return false;
         var primary = PrimaryMonitorRect();
-        if (info.rcMonitor.Left != primary.Left || info.rcMonitor.Top != primary.Top) return false;
-        return r.Left <= info.rcMonitor.Left && r.Top <= info.rcMonitor.Top &&
-               r.Right >= info.rcMonitor.Right && r.Bottom >= info.rcMonitor.Bottom;
+        const int tolerance = 1;
+        return Math.Abs(r.Left - primary.Left) <= tolerance && Math.Abs(r.Top - primary.Top) <= tolerance &&
+               Math.Abs(r.Right - primary.Right) <= tolerance && Math.Abs(r.Bottom - primary.Bottom) <= tolerance;
+    }
+
+    /// <summary>Class and title of the foreground window, for the log.</summary>
+    public static string ForegroundInfo()
+    {
+        var fg = GetForegroundWindow();
+        if (fg == IntPtr.Zero) return "none";
+        var cls = new System.Text.StringBuilder(64);
+        GetClassName(fg, cls, cls.Capacity);
+        var title = new System.Text.StringBuilder(80);
+        GetWindowText(fg, title, title.Capacity);
+        GetWindowRect(fg, out var r);
+        return $"[{cls}] '{title}' {r.Left},{r.Top},{r.Right},{r.Bottom}";
     }
 
     public static void BroadcastSettingChange(string area)

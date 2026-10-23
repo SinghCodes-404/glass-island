@@ -914,14 +914,14 @@ public partial class MainWindow : Window
         if (overlay != _fsOverlay)
         {
             _fsOverlay = overlay;
-            Trace((overlay ? "fullscreen: hidden until hovered" : "fullscreen ended") + $" (foreground: {ForegroundDescription()})");
+            App.Log((overlay ? "Fullscreen: hidden until hovered" : "Fullscreen ended") + $" — foreground {ForegroundInfo()}");
             if (overlay) EnterFullscreenTuck(); else LeaveFullscreenTuck();
         }
 
         // Exclusive fullscreen (games, presentations): nothing can draw on top, so hide outright.
         bool exclusive = kind == Fullscreen.Exclusive;
         if (exclusive == _hiddenForFullscreen || _expanded) return;
-        Trace(exclusive ? "hidden: exclusive fullscreen" : "shown: exclusive fullscreen ended");
+        App.Log((exclusive ? "Hidden: exclusive fullscreen or presentation mode" : "Shown: exclusive fullscreen ended") + $" — foreground {ForegroundInfo()}");
         if (exclusive)
         {
             _hiddenForFullscreen = true;
@@ -934,13 +934,6 @@ public partial class MainWindow : Window
 
     bool _fsOverlay;
 
-    static string ForegroundDescription()
-    {
-        var fg = GetForegroundWindow();
-        var sb = new System.Text.StringBuilder(64);
-        GetClassName(fg, sb, sb.Capacity);
-        return fg == IntPtr.Zero ? "none" : sb.ToString();
-    }
 
     /// <summary>When tucked, show nothing (fullscreen, or the user's choice) rather than the slim line.</summary>
     bool TuckHidden => _fsOverlay || _vm.Settings.TuckStyle == "Hidden";
