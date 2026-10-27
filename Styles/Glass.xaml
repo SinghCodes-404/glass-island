@@ -36,6 +36,7 @@
     <core:NullToVisibility x:Key="NullToVis" />
     <core:NullToVisibility x:Key="InvNullToVis" Invert="True" />
     <core:EqualsConverter x:Key="Eq" />
+    <core:InverseBool x:Key="Not" />
     <core:ArcConverter x:Key="Arc" />
 
     <sys:Boolean x:Key="True">True</sys:Boolean>
@@ -486,6 +487,35 @@
                     </Grid>
                     <ControlTemplate.Triggers>
                         <Trigger Property="Text" Value=""><Setter TargetName="Ph" Property="Visibility" Value="Visible" /></Trigger>
+                        <Trigger Property="IsKeyboardFocused" Value="True">
+                            <Setter TargetName="Bg" Property="Background" Value="#22FFFFFF" />
+                            <Setter TargetName="Bg" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- ============ Password (API key) ============ -->
+    <Style x:Key="GlassPasswordBox" TargetType="PasswordBox">
+        <Setter Property="Foreground" Value="{StaticResource TextPrimary}" />
+        <Setter Property="CaretBrush" Value="White" />
+        <Setter Property="SelectionBrush" Value="{DynamicResource AccentBrush}" />
+        <Setter Property="FontFamily" Value="{StaticResource UiFont}" />
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="Height" Value="34" />
+        <Setter Property="Padding" Value="14,0" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="PasswordBox">
+                    <Grid>
+                        <Border x:Name="Bg" CornerRadius="17" Background="#14FFFFFF" BorderBrush="{StaticResource GlassStroke}" BorderThickness="1" />
+                        <ScrollViewer x:Name="PART_ContentHost" Margin="{TemplateBinding Padding}" VerticalAlignment="Center" Focusable="False"
+                                      HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Hidden" />
+                    </Grid>
+                    <ControlTemplate.Triggers>
                         <Trigger Property="IsKeyboardFocused" Value="True">
                             <Setter TargetName="Bg" Property="Background" Value="#22FFFFFF" />
                             <Setter TargetName="Bg" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />

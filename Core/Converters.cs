@@ -21,6 +21,12 @@ public sealed class BoolToVisibility : IValueConverter
     public object ConvertBack(object value, Type t, object p, CultureInfo c) => (value is Visibility.Visible) ^ Invert;
 }
 
+public sealed class InverseBool : IValueConverter
+{
+    public object Convert(object value, Type t, object p, CultureInfo c) => value is not true;
+    public object ConvertBack(object value, Type t, object p, CultureInfo c) => value is not true;
+}
+
 public sealed class NullToVisibility : IValueConverter
 {
     public bool Invert { get; set; }

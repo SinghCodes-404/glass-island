@@ -299,6 +299,9 @@
                                     <Button x:Name="TabFocus" Style="{StaticResource TabButton}" Click="Tab_Click">
                                         <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource Icon}" Text="&#xE916;" FontSize="12" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" /><TextBlock Text="Focus" Margin="7,0,0,0" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" /></StackPanel>
                                     </Button>
+                                    <Button x:Name="TabAsk" Style="{StaticResource TabButton}" Click="Tab_Click">
+                                        <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource Icon}" Text="&#xE99A;" FontSize="12" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" /><TextBlock Text="Ask" Margin="7,0,0,0" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" /></StackPanel>
+                                    </Button>
                                 </StackPanel>
                             </Grid>
                             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
@@ -745,6 +748,128 @@
                                                    HorizontalAlignment="Center" VerticalAlignment="Center" x:Name="TodoEmpty" />
                                     </Grid>
                                 </Border>
+                            </Grid>
+
+                            <!-- ================= ASK (Gemini) ================= -->
+                            <Grid x:Name="AskPanel" Visibility="Collapsed">
+
+                                <!-- first run: connect a key -->
+                                <Border Style="{StaticResource Card}" Padding="24,18" Visibility="{Binding Assistant.HasKey, Converter={StaticResource InvBoolToVis}}">
+                                    <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Width="430">
+                                        <Border Width="46" Height="46" CornerRadius="23" Background="{DynamicResource AccentBrush}" HorizontalAlignment="Center">
+                                            <TextBlock Style="{StaticResource Icon}" Text="&#xE99A;" FontSize="20" Foreground="White" />
+                                        </Border>
+                                        <TextBlock Text="Connect Gemini" FontFamily="{StaticResource DisplayFont}" FontSize="17" FontWeight="SemiBold" HorizontalAlignment="Center" Margin="0,12,0,4" />
+                                        <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" TextAlignment="Center" FontSize="11.5"
+                                                   Text="Paste an API key from Google AI Studio. It's encrypted with Windows on this PC (DPAPI) and only ever sent to Google." />
+                                        <Grid Margin="0,14,0,0">
+                                            <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                                            <PasswordBox x:Name="KeyBox" Style="{StaticResource GlassPasswordBox}" KeyDown="KeyBox_KeyDown" PasswordChanged="KeyBox_PasswordChanged" />
+                                            <TextBlock x:Name="KeyPlaceholder" Text="Paste your Gemini API key" Foreground="{StaticResource TextTertiary}" Margin="15,0,0,0"
+                                                       VerticalAlignment="Center" IsHitTestVisible="False" />
+                                            <Button Grid.Column="1" Style="{StaticResource PillButton}" Height="34" Margin="8,0,0,0" Content="Connect" Click="SaveKey_Click"
+                                                    IsEnabled="{Binding Assistant.IsValidating, Converter={StaticResource Not}}" />
+                                        </Grid>
+                                        <TextBlock Text="{Binding Assistant.KeyStatus}" Style="{StaticResource Caption}" Foreground="#FFFF9A94" TextWrapping="Wrap"
+                                                   TextAlignment="Center" Margin="0,8,0,0" />
+                                        <Button Style="{StaticResource Chip}" HorizontalAlignment="Center" Margin="0,6,0,0" Command="{Binding Assistant.GetKeyCommand}">
+                                            <TextBlock><Run Text="Get a free key at aistudio.google.com  " /><Run Text="&#xE8A7;" FontFamily="{StaticResource IconFont}" FontSize="9" /></TextBlock>
+                                        </Button>
+                                    </StackPanel>
+                                </Border>
+
+                                <!-- chat -->
+                                <Grid Visibility="{Binding Assistant.HasKey, Converter={StaticResource BoolToVis}}">
+                                    <Grid.RowDefinitions><RowDefinition Height="*" /><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+                                    <ScrollViewer x:Name="ChatScroll" Style="{StaticResource GlassScrollViewer}">
+                                        <ItemsControl ItemsSource="{Binding Assistant.Messages}" Focusable="False" Margin="0,0,4,0">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <StackPanel x:Name="Wrap" HorizontalAlignment="Left" MaxWidth="500" Margin="0,0,0,10">
+                                                        <Border x:Name="Bubble" CornerRadius="16" Padding="13,8,13,9" Background="{StaticResource CardFill}"
+                                                                BorderBrush="{StaticResource GlassStroke}" BorderThickness="1" HorizontalAlignment="Left">
+                                                            <Grid>
+                                                                <TextBlock core:RichText.Markdown="{Binding Text}" TextWrapping="Wrap" FontSize="12.5" LineHeight="18" />
+                                                                <TextBlock x:Name="Thinking" Text="Thinking…" Style="{StaticResource Caption}" FontSize="12" Visibility="Collapsed" />
+                                                            </Grid>
+                                                        </Border>
+                                                        <ItemsControl ItemsSource="{Binding Actions}" Focusable="False">
+                                                            <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                                                            <ItemsControl.ItemTemplate>
+                                                                <DataTemplate>
+                                                                    <Border CornerRadius="100" Background="{DynamicResource AccentSoftBrush}" Padding="8,2,10,3" Margin="0,5,5,0">
+                                                                        <TextBlock FontSize="10.5"><Run Text="&#xE73E;" FontFamily="{StaticResource IconFont}" FontSize="9" /><Run Text="  " /><Run Text="{Binding Mode=OneWay}" /></TextBlock>
+                                                                    </Border>
+                                                                </DataTemplate>
+                                                            </ItemsControl.ItemTemplate>
+                                                        </ItemsControl>
+                                                    </StackPanel>
+                                                    <DataTemplate.Triggers>
+                                                        <DataTrigger Binding="{Binding IsUser}" Value="True">
+                                                            <Setter TargetName="Wrap" Property="HorizontalAlignment" Value="Right" />
+                                                            <Setter TargetName="Bubble" Property="HorizontalAlignment" Value="Right" />
+                                                            <Setter TargetName="Bubble" Property="Background" Value="{DynamicResource AccentSoftBrush}" />
+                                                            <Setter TargetName="Bubble" Property="BorderBrush" Value="#33FFFFFF" />
+                                                        </DataTrigger>
+                                                        <DataTrigger Binding="{Binding IsError}" Value="True">
+                                                            <Setter TargetName="Bubble" Property="Background" Value="#33FF5F57" />
+                                                        </DataTrigger>
+                                                        <MultiDataTrigger>
+                                                            <MultiDataTrigger.Conditions>
+                                                                <Condition Binding="{Binding IsStreaming}" Value="True" />
+                                                                <Condition Binding="{Binding Text}" Value="" />
+                                                            </MultiDataTrigger.Conditions>
+                                                            <Setter TargetName="Thinking" Property="Visibility" Value="Visible" />
+                                                        </MultiDataTrigger>
+                                                    </DataTemplate.Triggers>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </ScrollViewer>
+
+                                    <!-- empty chat: what it can do -->
+                                    <StackPanel x:Name="AskEmpty" VerticalAlignment="Center" HorizontalAlignment="Center">
+                                        <TextBlock Style="{StaticResource Icon}" Text="&#xE99A;" FontSize="26" Foreground="{DynamicResource AccentBrush}" />
+                                        <TextBlock Text="Ask Glass Island anything" FontFamily="{StaticResource DisplayFont}" FontSize="16" FontWeight="SemiBold" HorizontalAlignment="Center" Margin="0,10,0,3" />
+                                        <TextBlock Style="{StaticResource Caption}" HorizontalAlignment="Center" Text="It can change your wallpaper, theme, music, focus timer and tasks for you." />
+                                        <ItemsControl ItemsSource="{Binding Assistant.Suggestions}" Focusable="False" Margin="0,14,0,0" HorizontalAlignment="Center" MaxWidth="560">
+                                            <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel HorizontalAlignment="Center" /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <Button Content="{Binding}" Margin="3" Padding="12,0" Height="30" CommandParameter="{Binding}"
+                                                            Command="{Binding DataContext.Assistant.SendCommand, RelativeSource={RelativeSource AncestorType=Window}}">
+                                                        <Button.Style>
+                                                            <Style TargetType="Button" BasedOn="{StaticResource GhostPillButton}">
+                                                                <Setter Property="FontWeight" Value="Normal" />
+                                                            </Style>
+                                                        </Button.Style>
+                                                    </Button>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </StackPanel>
+
+                                    <Grid Grid.Row="1" Margin="0,10,0,0">
+                                        <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                                        <TextBox x:Name="AskBox" Style="{StaticResource GlassTextBox}" Height="36" Tag="Ask anything, or tell it what to change…" core:Glyph.Value="&#xE99A;"
+                                                 Text="{Binding Assistant.Input, UpdateSourceTrigger=PropertyChanged}" KeyDown="AskBox_KeyDown" />
+                                        <Button Grid.Column="1" Style="{StaticResource PillButton}" Width="36" Height="36" Padding="0" Margin="8,0,0,0" FontFamily="{StaticResource IconFont}" FontSize="13"
+                                                Content="&#xE724;" Command="{Binding Assistant.SendCommand}" ToolTip="Send (Enter)"
+                                                Visibility="{Binding Assistant.IsBusy, Converter={StaticResource InvBoolToVis}}" />
+                                        <Button Grid.Column="1" Style="{StaticResource GhostPillButton}" Width="36" Height="36" Padding="0" Margin="8,0,0,0" FontFamily="{StaticResource IconFont}" FontSize="12"
+                                                Content="&#xE71A;" Command="{Binding Assistant.StopCommand}" ToolTip="Stop"
+                                                Visibility="{Binding Assistant.IsBusy, Converter={StaticResource BoolToVis}}" />
+                                        <Button Grid.Column="2" Style="{StaticResource GlassIconButton}" Width="36" Height="36" Margin="6,0,0,0" FontSize="13"
+                                                Content="&#xE710;" Command="{Binding Assistant.NewChatCommand}" ToolTip="New chat" />
+                                    </Grid>
+                                    <Grid Grid.Row="2" Margin="4,7,4,0">
+                                        <TextBlock Style="{StaticResource Caption}" VerticalAlignment="Center">
+                                            <Run Text="&#xE99A;" FontFamily="{StaticResource IconFont}" FontSize="9" /><Run Text="  " /><Run Text="{Binding Assistant.ModelLabel, Mode=OneWay}" /><Run Text="  ·  can make mistakes" />
+                                        </TextBlock>
+                                        <Button Style="{StaticResource Chip}" Height="22" Padding="8,0" FontSize="10.5" HorizontalAlignment="Right" Content="Remove key"
+                                                Command="{Binding Assistant.ForgetKeyCommand}" ToolTip="Delete the stored API key from this PC" />
+                                    </Grid>
+                                </Grid>
                             </Grid>
                         </Grid>
                     </Grid>

@@ -17,6 +17,7 @@ public sealed class MainViewModel : Observable
     public WallpapersViewModel Walls { get; }
     public ThemeViewModel Theme { get; }
     public FocusViewModel Focus { get; }
+    public AssistantViewModel Assistant { get; }
 
     /// <summary>(title, subtitle, image, glyph) – shown as a short live activity in the island.</summary>
     public event Action<string, string, ImageSource?, string>? Toast;
@@ -55,6 +56,7 @@ public sealed class MainViewModel : Observable
         Theme = new ThemeViewModel(this);
         Walls = new WallpapersViewModel(this);
         Focus = new FocusViewModel(this);
+        Assistant = new AssistantViewModel(this);
 
         _clock = new DispatcherTimer(DispatcherPriority.Background);
         _clock.Tick += (_, _) => Tick();
@@ -225,6 +227,36 @@ public sealed class WallpapersViewModel : Observable
             if (w.IsCurrent && cur == null) cur = w;
         }
         Current = cur;
+    }
+
+    public IReadOnlyList<WallpaperItem> All => _all;
+
+    /// <summary>Wallpapers whose title, tags or type contain every word of the query (best matches first).</summary>
+    public IEnumerable<WallpaperItem> SearchItems(string query)
+    {
+        var words = query.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        if (words.Length == 0) return _all;
+        bool Has(WallpaperItem w, string word) =>
+            w.Title.Contains(word, StringComparison.CurrentCultureIgnoreCase) ||
+            w.Tags.Any(t => t.Contains(word, StringComparison.CurrentCultureIgnoreCase)) ||
+            w.TypeLabel.Equals(word, StringComparison.CurrentCultureIgnoreCase);
+        // all words first, then any word; favourites float up
+        return _all.Select(w => (w, hits: words.Count(word => Has(w, word))))
+                   .Where(x => x.hits > 0)
+                   .OrderByDescending(x => x.hits).ThenByDescending(x => x.w.IsFavorite)
+                   .Select(x => x.w);
+    }
+
+    public void SetPaused(bool paused)
+    {
+        IsPaused = paused;
+        _svc.Control(paused ? "pause" : "play");
+    }
+
+    public void SetMuted(bool muted)
+    {
+        IsMuted = muted;
+        _svc.Control(muted ? "mute" : "unmute");
     }
 
     void Rebuild()

@@ -10,7 +10,6 @@ public sealed class ThemeService
     const string Personalize = @"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize";
     const string Accent = @"Software\Microsoft\Windows\CurrentVersion\Explorer\Accent";
     const string Dwm = @"Software\Microsoft\Windows\DWM";
-    const string Run = @"Software\Microsoft\Windows\CurrentVersion\Run";
 
     static int GetInt(string key, string name, int fallback)
     {
@@ -85,18 +84,14 @@ public sealed class ThemeService
         Native.BroadcastSettingChange("ImmersiveColorSet");
     }
 
+    /// <summary>Sign-in autostart, via a per-user Task Scheduler task (see <see cref="StartupTask"/>).</summary>
     public bool StartWithWindows
     {
-        get
-        {
-            using var k = Registry.CurrentUser.OpenSubKey(Run);
-            return k?.GetValue("GlassIsland") != null;
-        }
+        get => StartupTask.IsEnabled || StartupTask.HasLegacyRunEntry();
         set
         {
-            using var k = Registry.CurrentUser.CreateSubKey(Run, true);
-            if (value) k.SetValue("GlassIsland", $"\"{Environment.ProcessPath}\"");
-            else k.DeleteValue("GlassIsland", false);
+            if (value) StartupTask.Enable(Installer.LaunchPath);
+            else StartupTask.Disable();
         }
     }
 }

@@ -54,7 +54,7 @@ public partial class MainWindow : Window
         InitializeComponent();
         DataContext = _vm;
         _visualizer = (Storyboard)Resources["Visualizer"];
-        foreach (var p in new FrameworkElement[] { HomePanel, WallPanel, ThemePanel, FocusPanel }) p.RenderTransform = new TranslateTransform();
+        foreach (var p in new FrameworkElement[] { HomePanel, WallPanel, ThemePanel, FocusPanel, AskPanel }) p.RenderTransform = new TranslateTransform();
 
         _collapseTimer.Tick += (_, _) =>
         {
@@ -116,6 +116,16 @@ public partial class MainWindow : Window
         PreviewKeyDown += (_, e) => { if (e.Key == Key.Escape && _expanded) { Collapse(); e.Handled = true; } };
         SearchBox.PreviewMouseLeftButtonDown += (_, _) => EnterKeyboard();
         TodoBox.PreviewMouseLeftButtonDown += (_, _) => EnterKeyboard();
+        AskBox.PreviewMouseLeftButtonDown += (_, _) => EnterKeyboard();
+        KeyBox.PreviewMouseLeftButtonDown += (_, _) => EnterKeyboard();
+        _vm.Assistant.Messages.CollectionChanged += (_, e) =>
+        {
+            AskEmpty.Visibility = _vm.Assistant.Messages.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+            if (e.NewItems != null)
+                foreach (ChatMessage m in e.NewItems)
+                    m.PropertyChanged += (_, pe) => { if (pe.PropertyName == nameof(ChatMessage.Text)) ScrollChatToEnd(); };
+            ScrollChatToEnd();
+        };
         WallList.PreviewMouseWheel += SmoothWheel;
     }
 
@@ -254,6 +264,11 @@ public partial class MainWindow : Window
             await RunSnapshots(App.SnapshotDir);
             return;
         }
+        if (App.AskPrompts.Count > 0)
+        {
+            await RunAskTest();
+            return;
+        }
         if (App.BenchFile != null)
         {
             AppSettings.ReadOnly = true;
@@ -264,6 +279,8 @@ public partial class MainWindow : Window
             return;
         }
         await _vm.Media.InitAsync();
+        if (App.JustInstalled != null)
+            ShowToast($"Glass Island {App.JustInstalled}", "It starts automatically when you sign in", null, "");
         ScheduleTuck();
         // Index wallpapers quietly in the background so the first open of the tab is instant.
         await Task.Delay(TimeSpan.FromSeconds(6));
@@ -285,7 +302,7 @@ public partial class MainWindow : Window
 
     // ───────────────────────────── geometry & springs ─────────────────────────────
 
-    double PanelHeight(string tab) => tab switch { "Wallpapers" => 396, "Theme" => 356, "Focus" => 270, _ => 212 };
+    double PanelHeight(string tab) => tab switch { "Wallpapers" => 396, "Ask" => 396, "Theme" => 356, "Focus" => 270, _ => 212 };
 
     string PillMode() => _vm.Focus.IsActive ? "timer" : _vm.Media.IsPlaying ? "music" : "idle";
 
@@ -489,8 +506,9 @@ public partial class MainWindow : Window
         TabWalls.Tag = tab == "Wallpapers";
         TabTheme.Tag = tab == "Theme";
         TabFocus.Tag = tab == "Focus";
+        TabAsk.Tag = tab == "Ask";
 
-        var panels = new (string Name, FrameworkElement El)[] { ("Home", HomePanel), ("Wallpapers", WallPanel), ("Theme", ThemePanel), ("Focus", FocusPanel) };
+        var panels = new (string Name, FrameworkElement El)[] { ("Home", HomePanel), ("Wallpapers", WallPanel), ("Theme", ThemePanel), ("Focus", FocusPanel), ("Ask", AskPanel) };
         int oldIndex = Array.FindIndex(panels, p => p.Name == old), newIndex = Array.FindIndex(panels, p => p.Name == tab);
         foreach (var (name, el) in panels)
         {
@@ -516,6 +534,7 @@ public partial class MainWindow : Window
         ExpandedLayer.Height = PanelHeight(tab);
         if (tab == "Wallpapers") _ = _vm.Walls.EnsureLoadedAsync();
         if (tab == "Focus" || tab == "Wallpapers") UpdateChips();
+        if (tab == "Ask" && !_instant) FocusAskInput();
 
         MoveIndicator(animate && !_instant);
         Retarget();
@@ -532,7 +551,7 @@ public partial class MainWindow : Window
         ExpandedLayer.BeginAnimation(OpacityProperty, null);
         ExpandedLayer.Opacity = 0;
         ExpandedLayer.Visibility = Visibility.Visible;
-        foreach (var panel in new FrameworkElement[] { HomePanel, WallPanel, ThemePanel, FocusPanel })
+        foreach (var panel in new FrameworkElement[] { HomePanel, WallPanel, ThemePanel, FocusPanel, AskPanel })
         {
             panel.Visibility = Visibility.Visible;
             ExpandedLayer.UpdateLayout();
@@ -544,7 +563,7 @@ public partial class MainWindow : Window
 
     void MoveIndicator(bool animate)
     {
-        var btn = _tab switch { "Wallpapers" => TabWalls, "Theme" => TabTheme, "Focus" => TabFocus, _ => TabHome };
+        var btn = _tab switch { "Wallpapers" => TabWalls, "Theme" => TabTheme, "Focus" => TabFocus, "Ask" => TabAsk, _ => TabHome };
         if (btn.ActualWidth <= 0) TabBar.UpdateLayout();
         var p = btn.TranslatePoint(new Point(0, 0), TabBar);
         _tabX.Target = p.X;
@@ -1035,13 +1054,58 @@ public partial class MainWindow : Window
 
     void Tab_Click(object sender, RoutedEventArgs e)
     {
-        var tab = sender == TabWalls ? "Wallpapers" : sender == TabTheme ? "Theme" : sender == TabFocus ? "Focus" : "Home";
+        var tab = sender == TabWalls ? "Wallpapers" : sender == TabTheme ? "Theme" : sender == TabFocus ? "Focus" : sender == TabAsk ? "Ask" : "Home";
         if (tab != _tab) SelectTab(tab);
     }
 
     void Collapse_Click(object sender, RoutedEventArgs e) => Collapse();
 
     void Quit_Click(object sender, RoutedEventArgs e) => Close();
+
+    // ───────────────────────────── Ask (Gemini) ─────────────────────────────
+
+    void FocusAskInput()
+    {
+        EnterKeyboard();
+        Dispatcher.BeginInvoke(() => { if (_vm.Assistant.HasKey) AskBox.Focus(); else KeyBox.Focus(); }, DispatcherPriority.Input);
+    }
+
+    void AskBox_KeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.Enter) return;
+        _vm.Assistant.SendCommand.Execute(null);
+        e.Handled = true;
+    }
+
+    bool _scrollQueued;
+
+    /// <summary>Keeps the newest message in view while a reply streams in (at most once per frame).</summary>
+    void ScrollChatToEnd()
+    {
+        if (_scrollQueued) return;
+        _scrollQueued = true;
+        Dispatcher.BeginInvoke(() => { _scrollQueued = false; ChatScroll.ScrollToEnd(); }, DispatcherPriority.Background);
+    }
+
+    async void SaveKey_Click(object sender, RoutedEventArgs e) => await SaveKeyAsync();
+
+    void KeyBox_KeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.Enter) return;
+        e.Handled = true;
+        _ = SaveKeyAsync();
+    }
+
+    void KeyBox_PasswordChanged(object sender, RoutedEventArgs e) =>
+        KeyPlaceholder.Visibility = KeyBox.Password.Length == 0 ? Visibility.Visible : Visibility.Collapsed;
+
+    async Task SaveKeyAsync()
+    {
+        await _vm.Assistant.SaveKeyAsync(KeyBox.Password);
+        if (!_vm.Assistant.HasKey) return;
+        KeyBox.Clear();          // don't keep the key in the UI
+        AskBox.Focus();
+    }
 
     void TodoBox_KeyDown(object sender, KeyEventArgs e)
     {
@@ -1215,6 +1279,18 @@ public partial class MainWindow : Window
         await Settle();
         await Shot(dir, "06-focus");
 
+        SelectTab("Ask");
+        await Settle();
+        await Shot(dir, "06b-ask");
+        if (App.Demo)
+        {
+            _vm.Assistant.LoadDemo();
+            await Settle();
+            ChatScroll.ScrollToEnd();
+            await Settle();
+            await Shot(dir, "06c-ask-chat");
+        }
+
         Collapse();
         if (App.Demo) _vm.Focus.Demo(TimeSpan.FromSeconds(17 * 60 + 42));
         await Settle();
@@ -1230,6 +1306,28 @@ public partial class MainWindow : Window
         await Settle();
         await Shot(dir, "09-tucked-line");
 
+        Close();
+    }
+
+    // ───────────────────────────── assistant test (--ask "prompt") ─────────────────────────────
+
+    /// <summary>Sends each prompt through the real assistant (stored key) and logs the conversation, never the key.</summary>
+    async Task RunAskTest()
+    {
+        AppSettings.ReadOnly = true;
+        GeminiAgent.Debug = true;
+        await _vm.Media.InitAsync();
+        var a = _vm.Assistant;
+        if (!a.HasKey) { App.Log("ASK: no API key stored; add it in the Ask tab first."); Close(); return; }
+        foreach (var prompt in App.AskPrompts)
+        {
+            a.Send(prompt);
+            var start = DateTime.Now;
+            await Task.Delay(200);
+            while (a.IsBusy && DateTime.Now - start < TimeSpan.FromSeconds(90)) await Task.Delay(150);
+            var reply = a.Messages.LastOrDefault();
+            App.Log($"ASK> {prompt}\n      reply ({(DateTime.Now - start).TotalSeconds:F1}s{(reply?.IsError == true ? ", ERROR" : "")}): {reply?.Text}\n      actions: {string.Join(" | ", reply?.Actions ?? [])}");
+        }
         Close();
     }
 

@@ -1,38 +1,25 @@
-# Builds Glass Island and installs it for the current user:
-#   - %LOCALAPPDATA%\Programs\GlassIsland   (on the system drive, so it is available as soon as you sign in)
-#   - a Start menu shortcut "Glass Island"
-#   - starts with Windows (per-user Run entry; turn off in Theme > Island or Task Manager > Startup apps)
-# Re-run it after changing the code to update the installed copy. Requires the .NET 10 SDK.
+# Builds Glass Island as ONE self-installing program: dist\GlassIsland.exe
+# Double-click that file (or copy it anywhere and run it) to install or update Glass Island for your account.
+# Pass -Install to also install it right away, without the confirmation dialog.
+# Requires the .NET 10 SDK to build; the program itself needs the .NET 10 Desktop Runtime.
+param([switch]$Install)
 $ErrorActionPreference = 'Stop'
 $src = $PSScriptRoot
-$dest = Join-Path $env:LOCALAPPDATA 'Programs\GlassIsland'
-$exe = Join-Path $dest 'GlassIsland.exe'
+$dist = Join-Path $src 'dist'
 
 $dotnet = (Get-Command dotnet -ErrorAction SilentlyContinue).Source
 if (-not $dotnet) { $dotnet = Join-Path $env:ProgramFiles 'dotnet\dotnet.exe' }
 
-# A running copy locks its files, so stop it before building and copying.
-Get-Process GlassIsland -ErrorAction SilentlyContinue | Stop-Process -Force
-Start-Sleep -Milliseconds 500
-
-Write-Host 'Building...'
-& $dotnet publish (Join-Path $src 'GlassIsland.csproj') -c Release -o (Join-Path $src 'publish') -nologo -v q
+Write-Host 'Building dist\GlassIsland.exe ...'
+& $dotnet publish (Join-Path $src 'GlassIsland.csproj') -c Release -r win-x64 --self-contained false `
+    -p:PublishSingleFile=true -p:DebugType=none -o $dist -nologo -v q
 if ($LASTEXITCODE -ne 0) { throw 'Build failed.' }
+Get-ChildItem $dist -Exclude 'GlassIsland.exe' | Remove-Item -Recurse -Force   # keep just the one program file
+Write-Host "Built $(Join-Path $dist 'GlassIsland.exe')"
 
-Write-Host "Installing to $dest"
-New-Item -ItemType Directory -Force $dest | Out-Null
-Copy-Item (Join-Path $src 'publish\*') $dest -Recurse -Force
-
-$lnk = Join-Path ([Environment]::GetFolderPath('Programs')) 'Glass Island.lnk'
-$shell = New-Object -ComObject WScript.Shell
-$s = $shell.CreateShortcut($lnk)
-$s.TargetPath = $exe
-$s.WorkingDirectory = $dest
-$s.IconLocation = "$exe,0"
-$s.Description = 'Glass Island'
-$s.Save()
-
-Set-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run' -Name 'GlassIsland' -Value "`"$exe`""
-
-Start-Process $exe
-Write-Host 'Done: Glass Island is running, in the Start menu, and starts with Windows.'
+if ($Install) {
+    # Wait for the installer only (Start-Process -Wait would also wait for the Glass Island it launches).
+    $installer = Start-Process (Join-Path $dist 'GlassIsland.exe') -ArgumentList '--install' -PassThru
+    $installer.WaitForExit()
+    Write-Host 'Installed: Glass Island is running, in the Start menu and Settings > Apps, and starts when you sign in.'
+}

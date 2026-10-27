@@ -7,13 +7,22 @@ your screen that morphs into a panel for wallpapers (Wallpaper Engine), theme, m
 
 ## Install
 
+Glass Island is **one self-installing program**, `GlassIsland.exe`. Double-click it and choose **OK**. It
+installs for your account only (no admin) to `%LOCALAPPDATA%\Programs\GlassIsland`, adds a **Glass Island**
+Start menu entry, starts automatically when you sign in, and appears in **Settings → Apps** with an
+**Uninstall** button. To update, run a newer `GlassIsland.exe` the same way; your settings, tasks and API key
+are kept.
+
+To build the program from source (needs the .NET 10 SDK; the program needs the .NET 10 Desktop Runtime):
+
 ```
-powershell -ExecutionPolicy Bypass -File install.ps1
+powershell -ExecutionPolicy Bypass -File install.ps1            # builds dist\GlassIsland.exe
+powershell -ExecutionPolicy Bypass -File install.ps1 -Install   # builds and installs it
 ```
 
-This builds the app and installs it to `%LOCALAPPDATA%\Programs\GlassIsland` (on the system drive, so it's
-there as soon as you sign in). It adds a **Glass Island** Start menu shortcut, sets it to start with Windows,
-and launches it. Re-run it after changing the code to update the installed copy.
+**Autostart** uses a per-user Task Scheduler task ("GlassIsland", trigger *At log on*) instead of the
+registry Run list, which Windows sometimes skips at sign-in. The task runs on battery and has no time
+limit. Turn it on or off in Theme → Island → *Start with Windows*, or in Task Scheduler.
 
 Requires Windows 10 (2004) or later and the [.NET 10 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/10.0).
 To build from source with the .NET 10 SDK: `dotnet publish -c Release -o publish`.

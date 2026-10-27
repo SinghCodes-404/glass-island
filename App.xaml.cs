@@ -12,9 +12,13 @@ public partial class App : Application
     public static bool Demo { get; private set; }
     public static string? BackdropPath { get; private set; }
     public static string? BenchFile { get; private set; }
+    /// <summary>"installed" / "updated" right after the self-installer ran; shown as a welcome toast.</summary>
+    public static string? JustInstalled { get; private set; }
+    /// <summary>--ask "prompt" (repeatable): send prompts to the assistant, log the replies, exit.</summary>
+    public static List<string> AskPrompts { get; } = [];
 
-    /// <summary>Scripted runs (snapshots, benchmark): no hotkey, no single-instance lock, no auto-tuck.</summary>
-    public static bool Scripted => SnapshotDir != null || BenchFile != null;
+    /// <summary>Scripted runs (snapshots, benchmark, --ask): no hotkey, no single-instance lock, no auto-tuck.</summary>
+    public static bool Scripted => SnapshotDir != null || BenchFile != null || AskPrompts.Count > 0;
 
     protected override void OnStartup(StartupEventArgs e)
     {
@@ -28,10 +32,15 @@ public partial class App : Application
             else if (e.Args[i] == "--demo") Demo = true;
             else if (e.Args[i] == "--backdrop" && i + 1 < e.Args.Length) BackdropPath = e.Args[++i];
             else if (e.Args[i] == "--bench" && i + 1 < e.Args.Length) BenchFile = e.Args[++i];
+            else if (e.Args[i] == "--ask" && i + 1 < e.Args.Length) AskPrompts.Add(e.Args[++i]);
         }
 
         if (!Scripted)
         {
+            // GlassIsland.exe is self-installing: install / update / uninstall happen here, before anything else.
+            if (Installer.HandleStartup(e.Args)) { Shutdown(); return; }
+            JustInstalled = e.Args.Contains("--installed") ? "installed" : e.Args.Contains("--updated") ? "updated" : null;
+
             _single = new Mutex(true, "GlassIsland.SingleInstance", out bool first);
             if (!first) { Log("Already running; this second launch exits."); Shutdown(); return; }
             Log($"Starting from {Environment.ProcessPath}");

@@ -23,6 +23,8 @@ public sealed class AppSettings
     public bool MatchAccentToWallpaper { get; set; }
     /// <summary>When a player only provides tiny artwork (Firefox: 60 px), look up 600 px art on iTunes.</summary>
     public bool OnlineArtwork { get; set; } = true;
+    /// <summary>Gemini model for the assistant (the API key itself is stored separately, encrypted).</summary>
+    public string AssistantModel { get; set; } = "gemini-3.8-flash";
     public bool LiquidGlass { get; set; } = true;
     public bool HideInFullscreen { get; set; } = true;
     /// <summary>Seconds of no interaction before the pill tucks into a line; 0 = never.</summary>
